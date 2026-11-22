@@ -1,0 +1,383 @@
+[
+  {
+    "slug": "watch",
+    "label": "Watch",
+    "accept": [
+      "watch",
+      "wristwatch",
+      "wrist watch"
+    ]
+  },
+  {
+    "slug": "clock",
+    "label": "Clock",
+    "accept": [
+      "clock",
+      "wall clock"
+    ]
+  },
+  {
+    "slug": "key",
+    "label": "Key",
+    "accept": [
+      "key"
+    ]
+  },
+  {
+    "slug": "cup",
+    "label": "Cup",
+    "accept": [
+      "cup",
+      "mug",
+      "coffee cup",
+      "teacup"
+    ]
+  },
+  {
+    "slug": "chair",
+    "label": "Chair",
+    "accept": [
+      "chair"
+    ]
+  },
+  {
+    "slug": "table",
+    "label": "Table",
+    "accept": [
+      "table"
+    ]
+  },
+  {
+    "slug": "bed",
+    "label": "Bed",
+    "accept": [
+      "bed"
+    ]
+  },
+  {
+    "slug": "lamp",
+    "label": "Lamp",
+    "accept": [
+      "lamp",
+      "table lamp",
+      "light"
+    ]
+  },
+  {
+    "slug": "door",
+    "label": "Door",
+    "accept": [
+      "door"
+    ]
+  },
+  {
+    "slug": "window",
+    "label": "Window",
+    "accept": [
+      "window"
+    ]
+  },
+  {
+    "slug": "telephone",
+    "label": "Telephone",
+    "accept": [
+      "telephone",
+      "phone",
+      "landline"
+    ]
+  },
+  {
+    "slug": "scissors",
+    "label": "Scissors",
+    "accept": [
+      "scissors"
+    ]
+  },
+  {
+    "slug": "pencil",
+    "label": "Pencil",
+    "accept": [
+      "pencil"
+    ]
+  },
+  {
+    "slug": "book",
+    "label": "Book",
+    "accept": [
+      "book"
+    ]
+  },
+  {
+    "slug": "umbrella",
+    "label": "Umbrella",
+    "accept": [
+      "umbrella"
+    ]
+  },
+  {
+    "slug": "spoon",
+    "label": "Spoon",
+    "accept": [
+      "spoon"
+    ]
+  },
+  {
+    "slug": "fork",
+    "label": "Fork",
+    "accept": [
+      "fork"
+    ]
+  },
+  {
+    "slug": "knife",
+    "label": "Knife",
+    "accept": [
+      "knife"
+    ]
+  },
+  {
+    "slug": "bottle",
+    "label": "Bottle",
+    "accept": [
+      "bottle"
+    ]
+  },
+  {
+    "slug": "glass",
+    "label": "Glass",
+    "accept": [
+      "glass",
+      "drinking glass",
+      "tumbler"
+    ]
+  },
+  {
+    "slug": "shoe",
+    "label": "Shoe",
+    "accept": [
+      "shoe",
+      "boot",
+      "sneaker"
+    ]
+  },
+  {
+    "slug": "hat",
+    "label": "Hat",
+    "accept": [
+      "hat"
+    ]
+  },
+  {
+    "slug": "glasses",
+    "label": "Glasses",
+    "accept": [
+      "glasses",
+      "eyeglasses",
+      "spectacles"
+    ]
+  },
+  {
+    "slug": "comb",
+    "label": "Comb",
+    "accept": [
+      "comb"
+    ]
+  },
+  {
+    "slug": "toothbrush",
+    "label": "Toothbrush",
+    "accept": [
+      "toothbrush",
+      "tooth brush"
+    ]
+  },
+  {
+    "slug": "hammer",
+    "label": "Hammer",
+    "accept": [
+      "hammer"
+    ]
+  },
+  {
+    "slug": "bell",
+    "label": "Bell",
+    "accept": [
+      "bell"
+    ]
+  },
+  {
+    "slug": "candle",
+    "label": "Candle",
+    "accept": [
+      "candle"
+    ]
+  },
+  {
+    "slug": "apple",
+    "label": "Apple",
+    "accept": [
+      "apple"
+    ]
+  },
+  {
+    "slug": "banana",
+    "label": "Banana",
+    "accept": [
+      "banana"
+    ]
+  },
+  {
+    "slug": "house",
+    "label": "House",
+    "accept": [
+      "house",
+      "home"
+    ]
+  },
+  {
+    "slug": "car",
+    "label": "Car",
+    "accept": [
+      "car",
+      "automobile"
+    ]
+  },
+  {
+    "slug": "bicycle",
+    "label": "Bicycle",
+    "accept": [
+      "bicycle",
+      "bike"
+    ]
+  },
+  {
+    "slug": "tree",
+    "label": "Tree",
+    "accept": [
+      "tree"
+    ]
+  },
+  {
+    "slug": "flower",
+    "label": "Flower",
+    "accept": [
+      "flower"
+    ]
+  },
+  {
+    "slug": "sun",
+    "label": "Sun",
+    "accept": [
+      "sun"
+    ]
+  },
+  {
+    "slug": "moon",
+    "label": "Moon",
+    "accept": [
+      "moon",
+      "crescent"
+    ]
+  },
+  {
+    "slug": "star",
+    "label": "Star",
+    "accept": [
+      "star"
+    ]
+  },
+  {
+    "slug": "fish",
+    "label": "Fish",
+    "accept": [
+      "fish"
+    ]
+  },
+  {
+    "slug": "bird",
+    "label": "Bird",
+    "accept": [
+      "bird"
+    ]
+  },
+  {
+    "slug": "envelope",
+    "label": "Envelope",
+    "accept": [
+      "envelope",
+      "letter",
+      "mail"
+    ]
+  },
+  {
+    "slug": "pan",
+    "label": "Frying pan",
+    "accept": [
+      "frying pan",
+      "pan",
+      "skillet"
+    ]
+  },
+  {
+    "slug": "kettle",
+    "label": "Kettle",
+    "accept": [
+      "kettle",
+      "teapot",
+      "tea kettle"
+    ]
+  },
+  {
+    "slug": "basket",
+    "label": "Basket",
+    "accept": [
+      "basket"
+    ]
+  },
+  {
+    "slug": "ladder",
+    "label": "Ladder",
+    "accept": [
+      "ladder"
+    ]
+  },
+  {
+    "slug": "bulb",
+    "label": "Light bulb",
+    "accept": [
+      "light bulb",
+      "bulb",
+      "lightbulb"
+    ]
+  },
+  {
+    "slug": "plate",
+    "label": "Plate",
+    "accept": [
+      "plate",
+      "dish"
+    ]
+  },
+  {
+    "slug": "broom",
+    "label": "Broom",
+    "accept": [
+      "broom"
+    ]
+  },
+  {
+    "slug": "balloon",
+    "label": "Balloon",
+    "accept": [
+      "balloon"
+    ]
+  },
+  {
+    "slug": "padlock",
+    "label": "Padlock",
+    "accept": [
+      "padlock",
+      "lock"
+    ]
+  }
+]

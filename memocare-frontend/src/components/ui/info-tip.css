@@ -1,0 +1,81 @@
+/* Small "what is this?" arrow + dropdown explanation panel */
+.nav-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nav-info-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper-raised);
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.nav-info-arrow:hover {
+  color: var(--primary);
+  background: var(--primary-tint);
+  border-color: var(--primary-tint);
+}
+
+.nav-info-open .nav-info-arrow {
+  transform: rotate(180deg);
+  color: var(--primary);
+  background: var(--primary-tint);
+}
+
+/* Panel — rendered with inline `position: fixed` coords from the component,
+   so it floats above the sidebar instead of being clipped by its edges. */
+.nav-info-panel {
+  z-index: 600;
+  width: 250px;
+  max-width: calc(100vw - 16px);
+  padding: 10px 12px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  cursor: default;
+  animation: nav-info-in 0.14s ease both;
+}
+
+/* sidebar (dark) variant */
+.nav-info-dark .nav-info-arrow {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.nav-info-dark .nav-info-arrow:hover,
+.nav-info-dark.nav-info-open .nav-info-arrow {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes nav-info-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>MemoCare — Location Sharing</title>
+<style>
+  :root {
+    --green: #2e7d32;
+    --red: #c62828;
+    --blue: #1a3c6e;
+    --grey: #666;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f6f9;
+    color: #222;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px;
+    min-height: 100vh;
+  }
+  .card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 28px 24px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+  h1 {
+    font-size: 20px;
+    color: var(--blue);
+    margin: 0 0 4px;
+  }
+  p.sub {
+    color: var(--grey);
+    font-size: 14px;
+    margin: 0 0 24px;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .status-dot.on { background: var(--green); box-shadow: 0 0 0 4px rgba(46,125,50,0.15); }
+  .status-dot.off { background: var(--red); }
+  #statusText { font-weight: 600; font-size: 16px; }
+  #detail { color: var(--grey); font-size: 13px; margin-top: 6px; min-height: 18px; }
+  button {
+    width: 100%;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    margin-top: 24px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:active { opacity: 0.8; }
+  #startBtn { background: var(--green); color: white; }
+  #stopBtn { background: var(--red); color: white; display: none; }
+  #errorBox {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #fdecea;
+    color: var(--red);
+    font-size: 13px;
+    display: none;
+    text-align: left;
+  }
+  #noTokenBox {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #fff8e1;
+    color: #5a4300;
+    font-size: 13px;
+    display: none;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>MemoCare Location Sharing</h1>
+    <p class="sub">Keep this page open to share your real location with your family and care team.</p>
+
+    <div>
+      <span class="status-dot off" id="statusDot"></span>
+      <span id="statusText">Not sharing</span>
+    </div>
+    <div id="detail">Tap the button below to start.</div>
+
+    <button id="startBtn">Start Sharing My Location</button>
+    <button id="stopBtn">Stop Sharing</button>
+
+    <div id="errorBox"></div>
+    <div id="noTokenBox">
+      This link is missing a valid sharing code. Ask your caretaker or
+      hospital staff to generate a new location-sharing link for you.
+    </div>
+  </div>
+
+<script>
+  // Same-origin by default — this page is served by the MemoCare API
+  // itself (see app.ts), so a relative URL works with no configuration
+  // and never runs into CORS. If you ever host this page somewhere
+  // else, change API_BASE to the full backend URL instead.
+  const API_BASE = '';
+  const PING_ENDPOINT = API_BASE + '/api/v1/location/ping';
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const detail = document.getElementById('detail');
+  const errorBox = document.getElementById('errorBox');
+  const noTokenBox = document.getElementById('noTokenBox');
+
+  let watchId = null;
+  let lastSentAt = 0;
+  const MIN_SEND_INTERVAL_MS = 20000; // don't flood the server; real GPS still updates continuously
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+  }
+
+  function clearError() {
+    errorBox.style.display = 'none';
+  }
+
+  function setSharing(isSharing) {
+    statusDot.className = 'status-dot ' + (isSharing ? 'on' : 'off');
+    statusText.textContent = isSharing ? 'Sharing your location' : 'Not sharing';
+    startBtn.style.display = isSharing ? 'none' : 'block';
+    stopBtn.style.display = isSharing ? 'block' : 'none';
+  }
+
+  async function sendPosition(position) {
+    const now = Date.now();
+    if (now - lastSentAt < MIN_SEND_INTERVAL_MS) return;
+    lastSentAt = now;
+
+    const { latitude, longitude, accuracy } = position.coords;
+    try {
+      const res = await fetch(PING_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, latitude, longitude, accuracyMeters: accuracy }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        showError('Could not send location: ' + (body?.error?.message || res.status));
+        return;
+      }
+      clearError();
+      const time = new Date().toLocaleTimeString();
+      detail.textContent = 'Last sent at ' + time + ' (accuracy ~' + Math.round(accuracy) + 'm)';
+    } catch (err) {
+      showError('Network error sending location: ' + err.message);
+    }
+  }
+
+  function handleGeoError(err) {
+    let msg = 'Location error: ' + err.message;
+    if (err.code === err.PERMISSION_DENIED) {
+      msg = 'Location permission was denied. Please allow location access in your browser settings and try again.';
+    }
+    showError(msg);
+    stopSharing();
+  }
+
+  function startSharing() {
+    if (!navigator.geolocation) {
+      showError('This browser does not support location sharing.');
+      return;
+    }
+    clearError();
+    watchId = navigator.geolocation.watchPosition(sendPosition, handleGeoError, {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 20000,
+    });
+    setSharing(true);
+    detail.textContent = 'Waiting for GPS signal...';
+  }
+
+  function stopSharing() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    setSharing(false);
+    detail.textContent = 'Sharing stopped.';
+  }
+
+  startBtn.addEventListener('click', startSharing);
+  stopBtn.addEventListener('click', stopSharing);
+
+  if (!token) {
+    noTokenBox.style.display = 'block';
+    startBtn.disabled = true;
+    startBtn.style.opacity = '0.5';
+  }
+</script>
+</body>
+</html>

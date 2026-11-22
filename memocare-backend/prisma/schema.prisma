@@ -1,0 +1,866 @@
+// ============================================================
+// MemoCare — Prisma schema
+// PostgreSQL. Raw audio/video BLOBs are NOT stored here — only
+// references (S3-style keys/URLs) to keep the relational DB lean.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------
+
+enum Role {
+  FAMILY
+  CARETAKER
+  HOSPITAL_STAFF
+  MEDICAL_STORE
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION // email not verified yet
+  PENDING_APPROVAL     // hospital staff awaiting admin/hospital approval
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum PatientLinkRole {
+  FAMILY_MEMBER
+  CARETAKER
+  ATTENDING_STAFF
+}
+
+enum HospitalStaffTitle {
+  DOCTOR
+  NURSE
+  CLINICIAN
+  ADMIN_STAFF
+}
+
+enum MediaType {
+  AUDIO
+  VIDEO
+}
+
+enum MediaSessionStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  UNKNOWN
+}
+
+enum PatientStatus {
+  ACTIVE
+  DISMISSED
+}
+
+enum ScreeningTestType {
+  MMSE_STYLE
+  MOCA_STYLE
+  NAME_THE_OBJECTS
+  WORD_RECALL
+  ORIENTATION
+  PATTERN_MEMORY
+  CUSTOM
+}
+
+enum NotificationType {
+  TEST_REMINDER
+  RISK_ALERT
+  LINK_INVITE
+  APPOINTMENT_REMINDER
+  MEDICATION_REMINDER
+  LOCATION_ALERT
+  SYSTEM
+}
+
+enum MedicationLogStatus {
+  PENDING
+  TAKEN
+  MISSED
+  SKIPPED
+}
+
+enum MedicationScheduleType {
+  RECURRING_DAILY // repeats every day at each time in timesOfDay
+  SPECIFIC_DATES  // fires only on the exact date-times in specificDateTimes
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
+}
+
+enum AuditAction {
+  VIEW_PATIENT
+  VIEW_REPORT
+  VIEW_SPEECH_RESULT
+  VIEW_VIDEO_SESSION
+  VIEW_SCREENING_RESULT
+  EXPORT_REPORT
+  CREATE_NOTE
+  UPDATE_PATIENT
+  LINK_USER
+  UNLINK_USER
+  UPLOAD_DOCUMENT
+  DELETE_DOCUMENT
+  DISMISS_PATIENT
+  READMIT_PATIENT
+}
+
+// ------------------------------------------------------------
+// Identity & Access
+// ------------------------------------------------------------
+
+model User {
+  id                String        @id @default(uuid())
+  email             String        @unique
+  passwordHash      String
+  role              Role
+  status            AccountStatus @default(PENDING_VERIFICATION)
+  firstName         String
+  lastName          String
+  phone             String?
+  address           String?
+  profession       String?
+  yearsOfExperience Int?
+  degrees          String?
+  dateOfBirth       DateTime?
+  profilePhotoKey   String?       // storage key/reference, not raw file
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Hospital staff only
+  hospitalId        String?
+  hospital          Hospital?     @relation(fields: [hospitalId], references: [id])
+  staffTitle        HospitalStaffTitle?
+  hospitalInviteCodeUsed String?
+
+  refreshTokens     RefreshToken[]
+  emailVerifications EmailVerificationToken[]
+  passwordResets    PasswordResetToken[]
+
+  patientLinks      PatientLink[]        @relation("UserPatientLinks")
+  patientsCreated   Patient[]            @relation("PatientCreatedBy")
+  notes             PatientNote[]        @relation("NoteAuthor")
+  uploadedMedia     MediaSession[]       @relation("MediaUploadedBy")
+  screeningAttempts ScreeningAttempt[]   @relation("ScreeningAdministeredBy")
+  notifications     Notification[]
+  notificationPrefs NotificationPreference[]
+  auditLogs         AuditLog[]           @relation("AuditActor")
+  tutorialProgress  TutorialProgress[]
+  appointmentsMade  Appointment[]        @relation("AppointmentCreatedBy")
+  medicationsCreated Medication[]        @relation("MedicationCreatedBy")
+  medicationLogsRecorded MedicationLog[] @relation("MedicationLogRecordedBy")
+  safeZonesCreated  SafeZone[]           @relation("SafeZoneCreatedBy")
+  locationShareTokensCreated LocationShareToken[] @relation("LocationTokenCreatedBy")
+  medicalStore      MedicalStore?
+  uploadedDocuments PatientDocument[]    @relation("DocumentUploadedBy")
+  uploadedFamilyMembers PatientFamilyMember[] @relation("FamilyMemberUploadedBy")
+  administeredFamilyQuizzes FamilyQuizAttempt[] @relation("FamilyQuizAdministeredBy")
+  assignedPatients  Patient[]            @relation("PatientAssignedDoctor")
+
+  @@index([role])
+  @@index([hospitalId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique // hashed
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  userAgent String?
+  ipAddress String?
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+// ------------------------------------------------------------
+// Hospitals / Admin
+// ------------------------------------------------------------
+
+model Hospital {
+  id          String   @id @default(uuid())
+  name        String
+  address     String?
+  inviteCode  String   @unique // used by staff during signup; rotate via admin
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff       User[]
+  patients    Patient[]
+
+  @@index([isApproved])
+}
+
+// ------------------------------------------------------------
+// Patients & Links
+// ------------------------------------------------------------
+
+model Patient {
+  id                  String    @id @default(uuid())
+  // PII kept together but logically separable from clinical data below
+  firstName           String
+  lastName            String
+  dateOfBirth         DateTime
+  sex                 String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  phone               String?
+  address             String?
+  relatives           Json?
+
+  // Clinical / non-PII-heavy fields
+  medicalHistoryNotes String?   // encrypted at rest (see fieldEncryption util)
+  diagnosisStatus     String?   // e.g. "undiagnosed", "MCI", "early-stage AD"
+
+  hospitalId          String?
+  hospital            Hospital? @relation(fields: [hospitalId], references: [id])
+  assignedDoctorId    String?   // the attending User (HOSPITAL_STAFF)
+  assignedDoctor      User?     @relation("PatientAssignedDoctor", fields: [assignedDoctorId], references: [id])
+
+  // Lifecycle: ACTIVE patients appear in the normal lists; DISMISSED patients
+  // move to the dismiss archive (kept for their history/results).
+  status              PatientStatus @default(ACTIVE)
+  dismissedAt         DateTime?
+  dismissReason       String?
+
+  createdById         String
+  createdBy           User      @relation("PatientCreatedBy", fields: [createdById], references: [id])
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  links               PatientLink[]
+  mediaSessions       MediaSession[]
+  screeningAttempts   ScreeningAttempt[]
+  notes               PatientNote[]
+  auditLogs           AuditLog[]
+  appointments        Appointment[]
+  progressSnapshots   ProgressSnapshot[]
+  medications         Medication[]
+  medicationLogs      MedicationLog[]
+  locationCheckIns    LocationCheckIn[]
+  safeZones           SafeZone[]
+  locationShareTokens LocationShareToken[]
+  documents           PatientDocument[]
+  familyMembers       PatientFamilyMember[]
+  familyQuizAttempts  FamilyQuizAttempt[]
+
+  @@index([hospitalId])
+}
+
+// Many-to-many: which users (family/caretaker/attending staff) are linked to which patient
+model PatientLink {
+  id          String          @id @default(uuid())
+  patientId   String
+  patient     Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User            @relation("UserPatientLinks", fields: [userId], references: [id], onDelete: Cascade)
+  linkRole    PatientLinkRole
+  invitedByEmail String?      // if created via invite-by-email before user existed
+  createdAt   DateTime        @default(now())
+
+  @@unique([patientId, userId])
+  @@index([userId])
+  @@index([patientId])
+}
+
+// Pending invites for people not yet registered
+model PatientLinkInvite {
+  id          String          @id @default(uuid())
+  patientId   String
+  email       String
+  linkRole    PatientLinkRole
+  token       String          @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime        @default(now())
+
+  @@index([patientId])
+  @@index([email])
+}
+
+// ------------------------------------------------------------
+// Speech & Video analysis
+// ------------------------------------------------------------
+
+// Up to 10 named family-member photos per patient, used for the "Who is
+// this?" recognition quiz below. Uploaded by whoever is helping the patient
+// (family, caretaker, or hospital staff) — not a global/admin-managed test,
+// since the people and photos are unique to each patient.
+model PatientFamilyMember {
+  id              String   @id @default(uuid())
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  fullName        String
+  storageKey      String
+  storageProvider String
+
+  uploadedById    String
+  uploadedBy      User     @relation("FamilyMemberUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt       DateTime @default(now())
+
+  quizAnswers     FamilyQuizAnswer[]
+
+  @@index([patientId])
+}
+
+// One quiz session: a random subset of the patient's family members are
+// shown (photo only, name hidden) and the answers are scored server-side,
+// the same trust boundary as screening tests — the correct name never
+// reaches the browser until after an answer is submitted.
+model FamilyQuizAttempt {
+  id               String    @id @default(uuid())
+  patientId        String
+  patient          Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  administeredById String
+  administeredBy   User      @relation("FamilyQuizAdministeredBy", fields: [administeredById], references: [id])
+
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  totalScore       Int?
+  maxPossibleScore Int?
+  scorePercentage  Float?
+
+  // The family members issued to this attempt (set when the quiz starts).
+  issuedMemberIds  String[]  @default([])
+
+  answers          FamilyQuizAnswer[]
+
+  @@index([patientId])
+}
+
+model FamilyQuizAnswer {
+  id             String              @id @default(uuid())
+  attemptId      String
+  attempt        FamilyQuizAttempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  familyMemberId String
+  familyMember   PatientFamilyMember @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+
+  givenAnswer    String
+  isCorrect      Boolean
+
+  @@index([attemptId])
+}
+
+// External/legacy reports, lab results, or any other document a family or
+// clinician wants attached to the patient — separate from the app's own
+// generated media sessions and clinical report.
+model PatientDocument {
+  id             String   @id @default(uuid())
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  title          String
+  storageKey     String
+  storageProvider String
+  mimeType       String
+  fileSizeBytes  Int
+
+  uploadedById   String
+  uploadedBy     User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt      DateTime @default(now())
+
+  @@index([patientId])
+}
+
+model MediaSession {
+  id              String              @id @default(uuid())
+  patientId       String
+  patient         Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  mediaType       MediaType
+  storageKey      String              // S3-style object key/reference (abstracted, see storage service)
+  storageProvider String              @default("local") // "local" | "s3"
+  mimeType        String?
+  durationSeconds Int?
+  assessmentTag   String?             // e.g. "reading-passage-1", "guided-facial-assessment"
+  status          MediaSessionStatus  @default(UPLOADED)
+  failureReason   String?
+
+  uploadedById    String
+  uploadedBy      User                @relation("MediaUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  analysisResult  SpeechAnalysisResult?
+
+  @@index([patientId])
+  @@index([status])
+}
+
+// Result of the async feature-extraction + risk-scoring pipeline.
+// One-to-one with a MediaSession (audio OR video-derived-audio).
+model SpeechAnalysisResult {
+  id                String    @id @default(uuid())
+  mediaSessionId    String    @unique
+  mediaSession      MediaSession @relation(fields: [mediaSessionId], references: [id], onDelete: Cascade)
+  patientId         String
+
+  // Extracted features (feature-extraction stage output)
+  pauseCount            Int?
+  avgPauseDurationMs    Int?
+  speechRateWpm         Float?
+  fillerWordCount       Int?
+  wordFindingDifficultyScore Float? // 0-1 normalized
+  coherenceScore        Float?      // 0-1 normalized
+  rawFeatureJson        Json?       // full feature vector, forward-compatible
+  transcriptText        String?     @db.Text // Whisper transcript, when real speech-to-text is used
+
+  // Risk-scoring stage output (from pluggable ML service — see services/mlRiskService)
+  riskScore         Float?      // 0-100
+  riskLevel         RiskLevel   @default(UNKNOWN)
+  modelVersion      String?     // which ML model/version produced this
+  modelRawResponse  Json?
+
+  analyzedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([patientId])
+  @@index([riskLevel])
+}
+
+// ------------------------------------------------------------
+// Cognitive Screening ("Guess the Things")
+// ------------------------------------------------------------
+
+model ScreeningTest {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  testType    ScreeningTestType
+  isActive    Boolean           @default(true)
+  // When set, each attempt is served a random subset of this many items out
+  // of the test's full item pool, rather than every item every time (e.g.
+  // a 50-picture naming pool, showing a different random 10 each attempt).
+  itemsPerAttempt Int?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  items       ScreeningItem[]
+  attempts    ScreeningAttempt[]
+}
+
+model ScreeningItem {
+  id            String        @id @default(uuid())
+  testId        String
+  test          ScreeningTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  order         Int
+  prompt        String        // e.g. "What day of the week is it?"
+  itemType      String        // "text_answer" | "multiple_choice" | "image_naming" | "word_recall"
+  choices       Json?         // for multiple_choice
+  correctAnswer Json          // flexible: string, array, etc. Never exposed pre-attempt via API.
+  mediaKey      String?       // e.g. an image for "name this object"
+  points        Int           @default(1)
+
+  answers       ScreeningAnswer[]
+
+  @@index([testId])
+}
+
+model ScreeningAttempt {
+  id                String    @id @default(uuid())
+  patientId         String
+  patient           Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  testId            String
+  test              ScreeningTest @relation(fields: [testId], references: [id])
+
+  administeredById  String
+  administeredBy    User      @relation("ScreeningAdministeredBy", fields: [administeredById], references: [id])
+
+  totalScore        Int?
+  maxPossibleScore  Int?
+  scorePercentage   Float?
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  answers           ScreeningAnswer[]
+
+  @@index([patientId])
+  @@index([testId])
+}
+
+model ScreeningAnswer {
+  id          String            @id @default(uuid())
+  attemptId   String
+  attempt     ScreeningAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        ScreeningItem     @relation(fields: [itemId], references: [id])
+  givenAnswer Json
+  isCorrect   Boolean?
+  pointsAwarded Int?
+  createdAt   DateTime          @default(now())
+
+  @@unique([attemptId, itemId])
+}
+
+// ------------------------------------------------------------
+// Progress tracking / reporting
+// ------------------------------------------------------------
+
+// Optional materialized snapshot to speed up trend queries; the
+// progress feed can also be computed on the fly (see progressService).
+model ProgressSnapshot {
+  id              String   @id @default(uuid())
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  snapshotDate    DateTime
+  avgRiskScore    Float?
+  avgScreeningPct Float?
+  trend           String?  // "improving" | "declining" | "stable"
+  summaryJson     Json?
+  createdAt       DateTime @default(now())
+
+  @@index([patientId, snapshotDate])
+}
+
+model PatientNote {
+  id            String   @id @default(uuid())
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User     @relation("NoteAuthor", fields: [authorId], references: [id])
+  body          String
+  visibleToFamily Boolean @default(false) // hospital-staff notes default private to hospital staff
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([patientId])
+}
+
+// ------------------------------------------------------------
+// Tutorials / CMS-lite
+// ------------------------------------------------------------
+
+model TutorialArticle {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  bodyMarkdown String
+  videoKey    String?
+  order       Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  progress    TutorialProgress[]
+}
+
+model TutorialProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articleId   String
+  article     TutorialArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@unique([userId, articleId])
+}
+
+// ------------------------------------------------------------
+// Notifications
+// ------------------------------------------------------------
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  channel   NotificationChannel
+  title     String
+  body      String
+  metadata  Json?
+  readAt    DateTime?
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, readAt])
+}
+
+model NotificationPreference {
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  inAppEnabled Boolean        @default(true)
+  emailEnabled Boolean        @default(true)
+
+  @@unique([userId, type])
+}
+
+// ------------------------------------------------------------
+// Appointments
+// ------------------------------------------------------------
+
+model Appointment {
+  id            String            @id @default(uuid())
+  patientId     String
+  patient       Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  title         String
+  notes         String?
+  scheduledFor  DateTime
+  status        AppointmentStatus @default(SCHEDULED)
+  reminderSent  Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([patientId, scheduledFor])
+}
+
+// ------------------------------------------------------------
+// Audit logging
+// ------------------------------------------------------------
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  actorId    String
+  actor      User        @relation("AuditActor", fields: [actorId], references: [id])
+  patientId  String?
+  patient    Patient?    @relation(fields: [patientId], references: [id])
+  action     AuditAction
+  resourceType String?
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+// ------------------------------------------------------------
+// Medicine Reminders
+// ------------------------------------------------------------
+
+model Medication {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  name          String
+  dosage        String?   // e.g. "1 tablet, 500mg"
+  instructions  String?   // e.g. "Take with food"
+
+  scheduleType    MedicationScheduleType @default(RECURRING_DAILY)
+  timesOfDay      String[]  // 24h "HH:mm" strings, used when scheduleType = RECURRING_DAILY
+  specificDateTimes DateTime[] // exact date-times, used when scheduleType = SPECIFIC_DATES
+
+  startDate     DateTime
+  endDate       DateTime?
+  isActive      Boolean   @default(true)
+
+  createdById   String
+  createdBy     User      @relation("MedicationCreatedBy", fields: [createdById], references: [id])
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  logs          MedicationLog[]
+
+  @@index([patientId])
+  @@index([isActive])
+}
+
+// One row per scheduled dose (real or expected). The reminder job
+// creates a PENDING row when a dose becomes due; a caretaker/patient
+// then marks it TAKEN/MISSED/SKIPPED. This is what powers both the
+// reminder notification and the dose-history log.
+model MedicationLog {
+  id            String              @id @default(uuid())
+  medicationId  String
+  medication    Medication          @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  patientId     String
+  patient       Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  scheduledFor  DateTime
+  status        MedicationLogStatus @default(PENDING)
+  takenAt       DateTime?
+  recordedById  String?
+  recordedBy    User?               @relation("MedicationLogRecordedBy", fields: [recordedById], references: [id])
+  reminderSentAt DateTime?
+  createdAt     DateTime            @default(now())
+
+  @@unique([medicationId, scheduledFor])
+  @@index([patientId, scheduledFor])
+  @@index([status])
+}
+
+// ------------------------------------------------------------
+// Location Tracking
+// ------------------------------------------------------------
+
+// A single real GPS reading. Submitted either by an authenticated
+// caretaker/staff app, or via the public token-based /location/ping
+// endpoint used by the standalone browser page in
+// /location-tracker-page (see that folder's README).
+model LocationCheckIn {
+  id             String   @id @default(uuid())
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  latitude       Float
+  longitude      Float
+  accuracyMeters Float?
+  source         String?  // e.g. "browser-share-link", "authenticated-app"
+  recordedAt     DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+}
+
+// A geofence around a location the patient is expected to stay near
+// (e.g. home). Checked on every LocationCheckIn; leaving every active
+// zone triggers a LOCATION_ALERT notification to linked family/staff.
+model SafeZone {
+  id           String   @id @default(uuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  name         String
+  centerLat    Float
+  centerLng    Float
+  radiusMeters Float
+  isActive     Boolean  @default(true)
+
+  createdById  String
+  createdBy    User     @relation("SafeZoneCreatedBy", fields: [createdById], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([patientId])
+}
+
+// A revocable, unguessable link that lets a patient's own device (or
+// a caretaker carrying a phone with them) submit real GPS pings
+// without needing to log in — see /location-tracker-page.
+model LocationShareToken {
+  id          String    @id @default(uuid())
+  patientId   String
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  token       String    @unique
+  isActive    Boolean   @default(true)
+
+  createdById String
+  createdBy   User      @relation("LocationTokenCreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@index([patientId])
+}
+
+// ------------------------------------------------------------
+// Nearby Medical Store Directory
+// ------------------------------------------------------------
+
+// One store per MEDICAL_STORE user account. A store manages only its
+// own listing and medicine catalog; anyone logged in can search/browse.
+model MedicalStore {
+  id          String   @id @default(uuid())
+  ownerId     String   @unique
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  storeName   String
+  address     String
+  city        String?
+  taluka      String?
+  latitude    Float
+  longitude   Float
+  phone       String?
+  openTime    String?  // "HH:mm" 24h, e.g. "09:00"
+  closeTime   String?  // "HH:mm" 24h, e.g. "21:00"
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  medicines   StoreMedicine[]
+
+  @@index([latitude, longitude])
+  @@index([city, taluka])
+}
+
+// A single medicine a store carries. Capped at 50 per store, enforced
+// in storeService.ts (not in the schema — an app-level business rule).
+model StoreMedicine {
+  id        String       @id @default(uuid())
+  storeId   String
+  store     MedicalStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  price     Float
+  quantity  Int          @default(0) // units currently in stock
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([storeId])
+  @@index([name])
+}
+
+// ------------------------------------------------------------
+// Analytics event hooks (lightweight, for future admin dashboards)
+// ------------------------------------------------------------
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  eventName String   // e.g. "test_completed", "user_login", "speech_upload"
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([eventName, createdAt])
+}

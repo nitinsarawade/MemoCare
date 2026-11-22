@@ -1,0 +1,21 @@
+# MemoCare — robots.txt
+# The login/signup and legal pages are public. Everything behind login
+# is a private health app, so crawlers are told to keep out.
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /signup
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
+Disallow: /dashboard
+Disallow: /patients
+Disallow: /admin
+Disallow: /screening-tests
+Disallow: /stores
+Disallow: /guidance
+Disallow: /notifications
+Disallow: /profile
+Disallow: /mind-games
+Disallow: /api/

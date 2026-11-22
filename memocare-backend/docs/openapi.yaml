@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: MemoCare API
+  version: 1.0.0
+  description: >
+    Backend API for MemoCare — a dementia/Alzheimer's early-detection and monitoring platform
+    combining speech analysis, cognitive screening, video sessions, and caregiver collaboration.
+    This file is a hand-maintained overview; the live, always-current spec is auto-generated
+    from route JSDoc and served at GET /api/docs.json (Swagger UI at /api/docs).
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, nullable: true }
+tags:
+  - name: Auth
+  - name: Admin
+  - name: Patients
+  - name: Media
+  - name: Screening
+  - name: Progress
+  - name: Reports
+  - name: Tutorials
+  - name: Notifications
+  - name: Appointments
+
+paths:
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register (family / caretaker / hospital staff)
+      security: []
+      responses: { '201': { description: Created }, '400': { description: Validation error }, '409': { description: Email already in use } }
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify email with token from signup email
+      security: []
+      responses: { '200': { description: Verified } }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in, receive access + refresh tokens
+      security: []
+      responses: { '200': { description: OK }, '401': { description: Invalid credentials }, '403': { description: Account not verified/approved/suspended } }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token, get a new token pair
+      security: []
+      responses: { '200': { description: OK }, '401': { description: Invalid/expired refresh token } }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token
+      security: []
+      responses: { '204': { description: No Content } }
+  /auth/password/forgot:
+    post: { tags: [Auth], summary: Request a password reset email, security: [], responses: { '200': { description: OK } } }
+  /auth/password/reset:
+    post: { tags: [Auth], summary: Reset password using emailed token, security: [], responses: { '200': { description: OK } } }
+  /auth/password/change:
+    post: { tags: [Auth], summary: Change password while authenticated, responses: { '200': { description: OK } } }
+  /auth/me:
+    get: { tags: [Auth], summary: Get current user profile, responses: { '200': { description: OK } } }
+    patch: { tags: [Auth], summary: Update current user profile, responses: { '200': { description: OK } } }
+
+  /admin/hospitals:
+    get: { tags: [Admin], summary: List hospitals (ADMIN only), responses: { '200': { description: OK } } }
+    post: { tags: [Admin], summary: Create a hospital (ADMIN only), responses: { '201': { description: Created } } }
+  /admin/hospitals/{hospitalId}/rotate-invite-code:
+    post:
+      tags: [Admin]
+      summary: Rotate a hospital's staff invite code (ADMIN only)
+      parameters: [{ name: hospitalId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+  /admin/staff/pending:
+    get: { tags: [Admin], summary: List hospital-staff accounts pending approval (ADMIN only), responses: { '200': { description: OK } } }
+  /admin/staff/{userId}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve a pending hospital-staff account (ADMIN only)
+      parameters: [{ name: userId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+  /admin/staff/{userId}/reject:
+    post:
+      tags: [Admin]
+      summary: Reject a pending hospital-staff account (ADMIN only)
+      parameters: [{ name: userId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+  /admin/users:
+    get: { tags: [Admin], summary: List users, filterable by role/status (ADMIN only), responses: { '200': { description: OK } } }
+  /admin/users/{userId}/suspend:
+    post: { tags: [Admin], summary: Suspend a user (ADMIN only), responses: { '200': { description: OK } } }
+  /admin/users/{userId}/reactivate:
+    post: { tags: [Admin], summary: Reactivate a user (ADMIN only), responses: { '200': { description: OK } } }
+
+  /patients:
+    get: { tags: [Patients], summary: List patients visible to the current user, responses: { '200': { description: OK } } }
+    post: { tags: [Patients], summary: Register a new patient, responses: { '201': { description: Created } } }
+  /patients/accept-invite:
+    post: { tags: [Patients], summary: Accept a patient-link invite by token, responses: { '200': { description: OK } } }
+  /patients/{patientId}:
+    get: { tags: [Patients], summary: Get a patient (RBAC enforced), responses: { '200': { description: OK }, '403': { description: Forbidden }, '404': { description: Not found } } }
+    patch: { tags: [Patients], summary: Update a patient (RBAC enforced), responses: { '200': { description: OK } } }
+  /patients/{patientId}/links:
+    get: { tags: [Patients], summary: List users linked to a patient, responses: { '200': { description: OK } } }
+  /patients/{patientId}/links/invite:
+    post: { tags: [Patients], summary: Invite a family member/caretaker by email, responses: { '201': { description: OK } } }
+  /patients/{patientId}/links/{userId}:
+    delete: { tags: [Patients], summary: Unlink a user from a patient, responses: { '204': { description: No Content } } }
+
+  /patients/{patientId}/media:
+    get: { tags: [Media], summary: List audio/video sessions for a patient, responses: { '200': { description: OK } } }
+  /patients/{patientId}/media/audio:
+    post: { tags: [Media], summary: Upload an audio sample (multipart "file"), triggers async speech analysis, responses: { '201': { description: Created } } }
+  /patients/{patientId}/media/video:
+    post: { tags: [Media], summary: Upload a video session (multipart "file"), responses: { '201': { description: Created } } }
+  /media/{mediaSessionId}:
+    get: { tags: [Media], summary: Get a media session + analysis result, responses: { '200': { description: OK } } }
+  /media/{mediaSessionId}/url:
+    get: { tags: [Media], summary: Get a (signed) URL to fetch the underlying file, responses: { '200': { description: OK } } }
+
+  /screening-tests:
+    get: { tags: [Screening], summary: List active cognitive screening tests, responses: { '200': { description: OK } } }
+    post: { tags: [Screening], summary: Create a screening test (ADMIN/HOSPITAL_STAFF), responses: { '201': { description: Created } } }
+  /screening-tests/{testId}:
+    get: { tags: [Screening], summary: Fetch a test's items (answers withheld), responses: { '200': { description: OK } } }
+  /patients/{patientId}/screening-attempts:
+    get: { tags: [Screening], summary: List a patient's screening attempts, responses: { '200': { description: OK } } }
+    post: { tags: [Screening], summary: Submit answers for auto-scoring, responses: { '201': { description: Created } } }
+  /patients/{patientId}/screening-attempts/{attemptId}:
+    get: { tags: [Screening], summary: Get a single scored attempt, responses: { '200': { description: OK } } }
+
+  /patients/{patientId}/progress/timeline:
+    get: { tags: [Progress], summary: Combined speech + video + screening timeline, date-range filterable, responses: { '200': { description: OK } } }
+  /patients/{patientId}/progress/summary:
+    get: { tags: [Progress], summary: Structured summary report object (JSON, chart/PDF-ready), responses: { '200': { description: OK } } }
+
+  /patients/{patientId}/report:
+    get: { tags: [Reports], summary: Full clinical report (staff) or simplified report (family/caretaker), responses: { '200': { description: OK } } }
+  /patients/{patientId}/report/export:
+    get: { tags: [Reports], summary: Export the full clinical report (staff only), responses: { '200': { description: OK } } }
+  /patients/{patientId}/report/notes:
+    get: { tags: [Reports], summary: List notes visible to the current role, responses: { '200': { description: OK } } }
+    post: { tags: [Reports], summary: Add a staff note, optionally shared with family, responses: { '201': { description: Created } } }
+
+  /tutorials:
+    get: { tags: [Tutorials], summary: List published tutorial articles, security: [], responses: { '200': { description: OK } } }
+    post: { tags: [Tutorials], summary: Create a tutorial article (ADMIN only), responses: { '201': { description: Created } } }
+  /tutorials/progress/me:
+    get: { tags: [Tutorials], summary: Current user's onboarding completion progress, responses: { '200': { description: OK } } }
+  /tutorials/{slug}:
+    get: { tags: [Tutorials], summary: Get a tutorial article by slug, security: [], responses: { '200': { description: OK } } }
+  /tutorials/{articleId}/complete:
+    post: { tags: [Tutorials], summary: Mark a tutorial as completed for the current user, responses: { '200': { description: OK } } }
+  /tutorials/{id}:
+    patch: { tags: [Tutorials], summary: Update a tutorial article (ADMIN only), responses: { '200': { description: OK } } }
+    delete: { tags: [Tutorials], summary: Delete a tutorial article (ADMIN only), responses: { '204': { description: No Content } } }
+
+  /notifications:
+    get: { tags: [Notifications], summary: List current user's notifications, responses: { '200': { description: OK } } }
+  /notifications/{notificationId}/read:
+    post: { tags: [Notifications], summary: Mark a notification as read, responses: { '204': { description: No Content } } }
+  /notifications/preferences:
+    get: { tags: [Notifications], summary: Get notification preferences, responses: { '200': { description: OK } } }
+    put: { tags: [Notifications], summary: Set a notification type's in-app/email preference, responses: { '200': { description: OK } } }
+
+  /patients/{patientId}/appointments:
+    get: { tags: [Appointments], summary: List appointments/reminders for a patient, responses: { '200': { description: OK } } }
+    post: { tags: [Appointments], summary: Create an appointment (staff/caretaker), responses: { '201': { description: Created } } }
+  /patients/{patientId}/appointments/{appointmentId}:
+    patch: { tags: [Appointments], summary: Update an appointment, responses: { '200': { description: OK } } }
+    delete: { tags: [Appointments], summary: Delete an appointment, responses: { '204': { description: No Content } } }

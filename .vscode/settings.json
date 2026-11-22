@@ -1,0 +1,6 @@
+{
+  "search.exclude": { "**/node_modules": true, "**/dist": true, "**/data": true },
+  "files.watcherExclude": { "**/node_modules/**": true, "**/data/**": true },
+  "editor.formatOnSave": false,
+  "[prisma]": { "editor.defaultFormatter": "Prisma.prisma" }
+}

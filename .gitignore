@@ -1,0 +1,16 @@
+memocare-backend/data/
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store

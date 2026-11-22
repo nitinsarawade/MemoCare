@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "MemoCare: 1. Install packages (first time)",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/memocare-backend" },
+      "problemMatcher": []
+    },
+    {
+      "label": "MemoCare: 2. Start app (database + website)",
+      "type": "shell",
+      "command": "npm run start:local",
+      "options": { "cwd": "${workspaceFolder}/memocare-backend" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated" }
+    },
+    {
+      "label": "MemoCare: UI dev - install frontend packages",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/memocare-frontend" },
+      "problemMatcher": []
+    },
+    {
+      "label": "MemoCare: UI dev - start Vite (port 3000)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/memocare-frontend" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated" }
+    },
+    {
+      "label": "MemoCare: UI - rebuild site after editing",
+      "type": "shell",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/memocare-frontend" },
+      "problemMatcher": []
+    }
+  ]
+}
